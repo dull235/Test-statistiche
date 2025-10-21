@@ -1,5 +1,7 @@
+import streamlit as st
 import random
 import matplotlib.pyplot as plt
+import time
 
 # CONFIGURAZIONE
 saldo_iniziale = 20.00
@@ -11,80 +13,99 @@ prob_player = 0.446
 prob_tie = 0.095
 prob_banker = 1 - prob_player - prob_tie
 
-# VARIABILI
-saldo = saldo_iniziale
-puntata_attuale = puntata_base
-vittorie = 0
-sconfitte = 0
-pareggi = 0
-perdite_consecutive = 0
-max_perdite_consecutive = 0
-storico_saldo = [saldo]
-storico_puntate = [puntata_attuale]
+st.title("🎰 Simulatore Bacarà - Strategia Martingala")
+st.markdown("Simulazione automatizzata di puntate su 'giocatore'. Strategia: raddoppio dopo ogni perdita.")
 
-# FUNZIONE PER SIMULARE UN RISULTATO
-def simula_baccara():
-    r = random.random()
-    if r < prob_player:
-        return "giocatore"
-    elif r < prob_player + prob_tie:
-        return "pareggio"
-    else:
-        return "banco"
+if st.button("▶️ Avvia Simulazione"):
 
-# SIMULAZIONE
-mano = 0
-while mano < max_mani and saldo >= puntata_attuale:
-    mano += 1
-    esito = simula_baccara()
+    # VARIABILI
+    saldo = saldo_iniziale
+    puntata_attuale = puntata_base
+    vittorie = 0
+    sconfitte = 0
+    pareggi = 0
+    perdite_consecutive = 0
+    max_perdite_consecutive = 0
+    storico_saldo = [saldo]
+    storico_puntate = [puntata_attuale]
+    log = ""
 
-    if esito == "giocatore":
-        saldo += puntata_attuale
-        vittorie += 1
-        puntata_attuale = puntata_base
-        perdite_consecutive = 0
-    elif esito == "banco":
-        saldo -= puntata_attuale
-        sconfitte += 1
-        perdite_consecutive += 1
-        puntata_attuale *= 2
-    elif esito == "pareggio":
-        pareggi += 1
-        # puntata non cambia
+    output_box = st.empty()  # contenitore per output dinamico
 
-    max_perdite_consecutive = max(max_perdite_consecutive, perdite_consecutive)
-    storico_saldo.append(saldo)
-    storico_puntate.append(puntata_attuale)
+    def simula_baccara():
+        r = random.random()
+        if r < prob_player:
+            return "giocatore"
+        elif r < prob_player + prob_tie:
+            return "pareggio"
+        else:
+            return "banco"
 
-    if saldo < puntata_attuale:
-        print(f"👉 Fermato: saldo ({saldo:.2f}€) insufficiente per puntare {puntata_attuale:.2f}€")
-        break
+    mano = 0
+    while mano < max_mani and saldo >= puntata_attuale:
+        mano += 1
+        esito = simula_baccara()
 
-# RISULTATI
-print("\n📈 Verifica raccolta dati:")
-print(f"Punti raccolti: {len(storico_saldo)}")
-print(f"Saldo iniziale: {storico_saldo[0]}")
-print(f"Saldo finale: {storico_saldo[-1]}")
-print(f"Ultimi 10 saldi: {storico_saldo[-10:]}")
-print("\n📊 RISULTATI SIMULAZIONE:")
-print(f"Mani giocate: {mano}")
-print(f"Vittorie: {vittorie}")
-print(f"Sconfitte: {sconfitte}")
-print(f"Pareggi: {pareggi}")
-print(f"Saldo finale: {saldo:.2f} €")
-print(f"Max perdite consecutive: {max_perdite_consecutive}")
-print(f"Puntata massima eseguita: {max(storico_puntate):.2f} €")
-print(f"📈 Dati raccolti: {len(storico_saldo)} punti")
-print("Ultimi 5 saldi:", storico_saldo[-5:])
+        if esito == "giocatore":
+            saldo += puntata_attuale
+            vittorie += 1
+            log += f"✅ Mano {mano}: Vinto! +{puntata_attuale:.2f}€ → saldo: {saldo:.2f}€\n"
+            puntata_attuale = puntata_base
+            perdite_consecutive = 0
+
+        elif esito == "banco":
+            saldo -= puntata_attuale
+            sconfitte += 1
+            log += f"❌ Mano {mano}: Perso! -{puntata_attuale:.2f}€ → saldo: {saldo:.2f}€\n"
+            perdite_consecutive += 1
+            puntata_attuale *= 2
+
+        elif esito == "pareggio":
+            pareggi += 1
+            log += f"➖ Mano {mano}: Pareggio. Puntata rimane a {puntata_attuale:.2f}€\n"
+
+        max_perdite_consecutive = max(max_perdite_consecutive, perdite_consecutive)
+        storico_saldo.append(saldo)
+        storico_puntate.append(puntata_attuale)
+
+        output_box.code(log)  # aggiorna l'output live
+        time.sleep(0.05)
+
+        if saldo < puntata_attuale:
+            log += f"\n🛑 Fermato: saldo ({saldo:.2f}€) insufficiente per puntare {puntata_attuale:.2f}€\n"
+            output_box.code(log)
+            break
+
+    # RIEPILOGO FINALE
+    st.success("✅ Simulazione completata!")
+
+    riepilogo = f"""
+📈 **Verifica raccolta dati:**
+- Punti raccolti: {len(storico_saldo)}
+- Saldo iniziale: {saldo_iniziale:.2f}
+- Saldo finale: {saldo:.2f}
+- Ultimi 10 saldi: {[round(s, 2) for s in storico_saldo[-10:]]}
+
+📊 **RISULTATI SIMULAZIONE:**
+- Mani giocate: {mano}
+- Vittorie: {vittorie}
+- Sconfitte: {sconfitte}
+- Pareggi: {pareggi}
+- Max perdite consecutive: {max_perdite_consecutive}
+- Puntata massima eseguita: {max(storico_puntate):.2f} €
+- Ultimi 5 saldi: {[round(s, 2) for s in storico_saldo[-5:]]}
+"""
+    st.code(riepilogo)
+
+    # GRAFICO SALDO
+    st.subheader("📉 Andamento del Saldo")
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(storico_saldo, label="Saldo (€)", color='blue')
+    ax.axhline(saldo_iniziale, color='gray', linestyle='--', label="Saldo iniziale")
+    ax.set_xlabel("Numero di mani")
+    ax.set_ylabel("Saldo (€)")
+    ax.grid(True)
+    ax.legend()
+    st.pyplot(fig)
 
 
-# GRAFICO SALDO
-plt.figure(figsize=(10, 5))
-plt.plot(storico_saldo, label="Saldo (€)")
-plt.title("Andamento del Saldo nel Tempo")
-plt.xlabel("Numero di mani")
-plt.ylabel("Saldo (€)")
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.show()
